@@ -1,0 +1,59 @@
+services:
+  init:
+    build: .
+    command: python manage.py migrate && python manage.py init_project
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build: .
+    command: gunicorn django_backend.wsgi:application \
+             --bind 0.0.0.0:8000 \
+             --workers 1 \
+             --timeout 60 \
+             --log-level info
+    env_file:
+      - .env
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    restart: always
+
+  celery:
+    build: .
+    command: celery -A django_backend worker -l info
+    env_file:
+      - .env
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    restart: always
+
+  beat:
+    build: .
+    command: celery -A django_backend beat -l info \
+             --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file:
+      - .env
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    restart: always
+
+  redis:
+    image: redis:7
+    restart: always
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis_data:
