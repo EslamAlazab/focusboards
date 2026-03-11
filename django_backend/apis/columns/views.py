@@ -5,7 +5,7 @@ from rest_framework.viewsets import GenericViewSet
 from rest_framework import permissions, mixins
 
 from .models import Column, Board
-from .serializers import ColumnSerializer
+from .serializers import ColumnSerializer, ColumnUpdateSerializer
 
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
@@ -53,3 +53,8 @@ class ColumnView(GenericViewSet,
     
     def get_queryset(self):
         return Column.objects.filter(owner=self.request.user)
+
+    def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return ColumnUpdateSerializer
+        return ColumnSerializer
