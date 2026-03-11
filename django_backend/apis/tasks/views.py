@@ -5,7 +5,7 @@ from rest_framework.viewsets import GenericViewSet
 from rest_framework import permissions, mixins
 
 from .models import Task, Column, Board
-from .serializers import TaskSerializer
+from .serializers import TaskSerializer, TaskUpdateSerializer
 
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
@@ -76,3 +76,8 @@ class TasksView(GenericViewSet,
     
     def get_queryset(self):
         return Task.objects.filter(owner=self.request.user)
+
+    def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return TaskUpdateSerializer
+        return TaskSerializer
