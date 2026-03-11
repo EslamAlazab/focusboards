@@ -13,4 +13,5 @@ urlpatterns = [
     path('api/v1/boards/', include("apis.boards.urls")),
     path('api/v1/columns/', include("apis.columns.urls")),
     path('api/v1/tasks/', include("apis.tasks.urls")),
+    path('api/v1/board-ai/', include("apis.board_ai_assistant.urls")),
 ]

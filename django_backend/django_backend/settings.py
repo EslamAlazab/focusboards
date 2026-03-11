@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     "apis.boards",
     'apis.columns',
     'apis.tasks',
+    'apis.board_ai_assistant',
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -108,7 +110,11 @@ WSGI_APPLICATION = 'django_backend.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': dj_database_url.config(default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}", conn_max_age=600)
+    "default": dj_database_url.config(
+        default="postgres://postgres:postgres@localhost:5432/focusboards",
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 # Password validation
@@ -149,7 +155,7 @@ STATIC_URL = 'static/'
 
 AUTH_USER_MODEL = 'users.User'
 
-REDIS_URL = os.getenv("", "redis://127.0.0.1:6379/1")
+REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1")
 
 CACHES = {
     "default": {
@@ -214,10 +220,11 @@ CELERY_TIMEZONE = "UTC"
 
 # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv("EMAIL_HOST")
-EMAIL_PORT = os.getenv("EMAIL_PORT")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", 'False').lower() in ('true', '1', 't')
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
@@ -227,3 +234,7 @@ GOOGLE_CLIENT_ID =os.getenv("GOOGLE_CLIENT_ID")
 DEFAULT_ADMIN_USERNAME = os.getenv("DEFAULT_ADMIN_USERNAME")
 DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD")
+
+AI_TEST_BASE_URL= os.getenv('AI_TEST_BASE_URL', "")
+AI_TEST_MODEL_NAME = os.getenv('AI_TEST_MODEL_NAME', "")
+AI_TEST_API_KEY = os.getenv('AI_TEST_API_KEY', "")
