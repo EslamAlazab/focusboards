@@ -8,12 +8,15 @@ from rest_framework import status, serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.exceptions import InvalidToken
 from django.template import TemplateDoesNotExist
+from django.test import override_settings
+from django.core import mail
 from django.core.cache import cache
 from unittest.mock import patch
 import uuid
 
 from apis.users.services.auth_services import authenticate_with_username_or_email, UidTokenMixin
 from apis.users.services.token_services import generate_tokens_for_user, refresh_access_token, blacklist_refresh_token
+from apis.users.tasks import send_verification_email_task, send_password_reset_email_task
 from apis.users.services.email_service import EmailService
 from apis.projects.models import Project
 from apis.boards.models import Board
@@ -52,7 +55,8 @@ class RegistrationTests(BaseUserTest):
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
                 self.assertEqual(User.objects.count(), 1)
                 self.assertEqual(User.objects.get().email, 'test@example.com')
-                mock_task.delay.assert_called_once()
+                user = User.objects.get()
+                mock_task.delay.assert_called_once_with(user.pk)
 
     def test_verify_email(self):
         """Test email verification logic"""
@@ -84,7 +88,7 @@ class RegistrationTests(BaseUserTest):
                 response = self.client.post(self.resend_verification_url, {'email': self.user_data['email']}, format='json')
                 
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
-                mock_task.delay.assert_called_once()
+                mock_task.delay.assert_called_once_with(user.pk)
 
 
 class AuthenticationTests(BaseUserTest):
@@ -191,7 +195,7 @@ class PasswordTests(BaseUserTest):
                 response = self.client.post(self.password_reset_url, {'email': self.user_data['email']}, format='json')
                 
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
-                mock_task.delay.assert_called_once()
+                mock_task.delay.assert_called_once_with(self.user.pk)
 
     def test_change_password(self):
         """Test password change"""
@@ -458,3 +462,55 @@ class GuestIntegrationTests(APITestCase):
         response = self.client.post(self.guest_register_url)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class TaskExecutionTests(BaseUserTest):
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(**self.user_data)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_send_verification_email_task_runs(self):
+        """Test that send_verification_email_task runs and sends an email with correct content."""
+        try:
+            # We call .delay() as it would be in production code.
+            # Eager setting makes it run synchronously.
+            send_verification_email_task.delay(self.user.pk)
+        except TypeError as e:
+            self.fail(f"Task execution failed with TypeError: {e}")
+
+        # Check that one email has been sent.
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+
+        # Verify the email details
+        self.assertEqual(email.subject, 'Verify your email for FocusBoards')
+        self.assertEqual(email.to, [self.user.email])
+
+        # Verify the content of the email body
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        self.assertIn(uid, email.body)
+        self.assertIn(token, email.body)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_send_password_reset_email_task_runs(self):
+        """Test that send_password_reset_email_task runs and sends an email with correct content."""
+        try:
+            send_password_reset_email_task.delay(self.user.pk)
+        except TypeError as e:
+            self.fail(f"Task execution failed with TypeError: {e}")
+
+        # Check that one email has been sent.
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+
+        # Verify the email details
+        self.assertEqual(email.subject, 'Reset your password')
+        self.assertEqual(email.to, [self.user.email])
+
+        # Verify the content of the email body
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        self.assertIn(uid, email.body)
+        self.assertIn(token, email.body)

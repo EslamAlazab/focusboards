@@ -41,7 +41,7 @@ class RegisterView(generics.CreateAPIView):
     def perform_create(self, serializer):
         user = serializer.save()
         transaction.on_commit(
-            lambda: send_verification_email_task.delay(user)
+            lambda: send_verification_email_task.delay(user.pk)
         )
 
 
@@ -59,7 +59,7 @@ class ResendVerificationView(generics.GenericAPIView):
 
         if user and not user.is_email_verified:
             transaction.on_commit(
-                lambda: send_verification_email_task.delay(user)
+                lambda: send_verification_email_task.delay(user.pk)
             )
 
         return Response(
@@ -205,7 +205,7 @@ class PasswordResetView(generics.GenericAPIView):
 
         if user:
             transaction.on_commit(
-                lambda:send_password_reset_email_task.delay(user)
+                lambda:send_password_reset_email_task.delay(user.pk)
                 )
             
         return Response({"message": "Password reset email sent."}, status=status.HTTP_200_OK)
