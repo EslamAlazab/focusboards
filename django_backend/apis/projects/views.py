@@ -9,17 +9,22 @@ from .serializers import ProjectSerializer
 
 
 @extend_schema(
-    tags=['projects'],
-    parameters=[
-        OpenApiParameter(
-            name='id',
-            type=OpenApiTypes.UUID,
-            location=OpenApiParameter.PATH,
-        )
-    ]
+    tags=['projects']
 )
 @extend_schema_view(
-    list=extend_schema(summary='List the user project')
+    list=extend_schema(summary='List the user project'),
+    retrieve=extend_schema(parameters=[
+        OpenApiParameter(name='id', type=OpenApiTypes.UUID, location=OpenApiParameter.PATH)
+    ]),
+    update=extend_schema(parameters=[
+        OpenApiParameter(name='id', type=OpenApiTypes.UUID, location=OpenApiParameter.PATH)
+    ]),
+    partial_update=extend_schema(parameters=[
+        OpenApiParameter(name='id', type=OpenApiTypes.UUID, location=OpenApiParameter.PATH)
+    ]),
+    destroy=extend_schema(parameters=[
+        OpenApiParameter(name='id', type=OpenApiTypes.UUID, location=OpenApiParameter.PATH)
+    ])
 )
 class UserProjectsView(ModelViewSet):
     serializer_class = ProjectSerializer
